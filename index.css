@@ -25,7 +25,7 @@
 }
 
 .malleable-link:hover {
-    stroke: red;
+    stroke: blue;
 }
 
 #tooltip-display > rect {

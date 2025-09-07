@@ -119,6 +119,10 @@ const forceDistPlot = () => {
         .force("center", d3.forceCenter(width / 2, height / 2));
 
     // Add a line for each link, and a circle for each node.
+    const minLink = d3.min(
+        links.filter(l => isMalleableLink(l)),
+        l => l.value
+    );
     LINK = svg.selectAll(".gLinks")
         .data([null])
         .join("g")
@@ -127,7 +131,7 @@ const forceDistPlot = () => {
         .data(links)
         .join("line")
         .attr("class", d => isMalleableLink(d) ? "malleable-link" : null)
-        .attr("stroke", "#ccc")
+        .attr("stroke", d => d.value === minLink ? "red" : "#ccc")
         .attr("stroke-opacity", d => isMalleableLink(d) ? 1 : 0.2)
         .attr("stroke-width", d => isMalleableLink(d) ? "5px" : "1px")
         .on("mouseover", (e, d) => {
@@ -249,10 +253,14 @@ const updateLinkDistances = () => {
     LINK_DIST.domain(d3.extent(links, d => d.value));
 
     // Update link selections.
+    const minLink = d3.min(
+        links.filter(l => isMalleableLink(l)),
+        l => l.value
+    );
     LINK = LINK.data(links, keyFn)
         .join("line")
         .attr("class", d => isMalleableLink(d) ? "malleable-link" : null)
-        .attr("stroke", "#ccc")
+        .attr("stroke", d => d.value === minLink ? "red" : "#ccc")
         .attr("stroke-opacity", d => isMalleableLink(d) ? 1 : 0.2)
         .attr("stroke-width", d => isMalleableLink(d) ? 5 : 1)
         .on("mouseover", (e, d) => {
@@ -626,6 +634,23 @@ const addApplyButton = () => {
         });
 }
 
+const listenKeyPress = () => {
+    /** Listens for keypress and sets
+     *  malleable and controls to all 0s
+     *  if 0 was pressed and all 1s if 1 was
+     *  pressed.
+     */
+
+    d3.select("body").on("keydown", (e) => {
+        if (e.key === "0" || e.key === "1") {
+            const val = e.key === "0" ? 0.0 : 1.0;
+            MALLEABLE = MALLEABLE.map(d => val);
+            updateLinkDistances();
+            refreshControlsFromMalleable();
+        }
+    });
+}
+
 const addControls = () => {
     /** Add controls to the control panel. */
 
@@ -672,6 +697,9 @@ const addControls = () => {
             }
         })
     })
+
+    // Add option to min / max controls.
+    listenKeyPress();
 }
 
 // LOAD DATA
