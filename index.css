@@ -1,0 +1,57 @@
+
+* {
+    padding: 0;
+    margin: 0;
+    font-family: sans-serif;
+}
+
+#container {
+    display: grid;
+    grid-template-columns: 800px auto;
+    grid-template-rows: auto auto;
+}
+
+.node {
+  transition: filter 150ms ease;
+}
+
+/* invert + slight pop on hover */
+.node:hover {
+  filter: invert(1);
+}
+
+.controller-div {
+    padding: 10px;
+}
+
+h5 {
+    display: flex;
+    font-size: larger;
+    /* text-decoration: underline; */
+    justify-content: center;
+    align-items: center;
+    border-radius: 5px;
+    margin: 1px 2px;
+    padding: 10px
+}
+
+div {
+    text-align: center;
+    /* border: 1px solid red; */
+}
+
+button {
+    font-size: 12px;
+    padding: 3px 10px;
+    margin: 5px;
+    border-radius: 5px;
+    border: 2px solid #333;
+    color: #333;
+    font-weight: 600;
+    width: 115px;
+    background-color: yellow;
+}
+
+button:hover {
+    filter: hue-rotate(90deg);
+}
