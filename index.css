@@ -24,6 +24,20 @@
     padding: 10px;
 }
 
+.malleable-link:hover {
+    stroke: red;
+}
+
+#tooltip-display > rect {
+    height: 20px;
+    border-radius: 50%;
+    transform: translate(-5px, -15px);
+}
+
+#tooltip-display {
+    transition: opacity 0.5s;
+}
+
 h5 {
     display: flex;
     font-size: larger;

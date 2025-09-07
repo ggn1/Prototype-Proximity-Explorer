@@ -10,14 +10,18 @@ var TRAIT_GROUP_MAP = {};
 var SIMULATION = null;
 var LINK_DIST = null;
 var LINK = null;
+const TOOLTIP = d3.select("#tooltip-display");
 const EPS = 1e-3;
 const DIST_MUL = 1.5;
+const FMT3 = d3.format(".3f");
+const FMT0 = d3.format(".0f");
 
 // HELPER FUNCTIONS
-const isMalleableLink = d => (
-    typeof d.source === "string" ? 
-    d.source : d.source.scientific_name
-) === "malleable";
+const srcName = (s) => (s && typeof s === "object") ? s.scientific_name : s;
+
+const isMalleableLink = (d) => srcName(d.source) === "malleable";
+
+const keyFn = (d) => `${srcName(d.source)}--${srcName(d.target)}`;
 
 const snakeToTitle = (text) => {
     /** Converts snake text like "ab_cd_ef" 
@@ -106,12 +110,8 @@ const forceDistPlot = () => {
         .force("link", d3.forceLink(links)
             .id(d => d.scientific_name)
             .distance(d => LINK_DIST(d.value * DIST_MUL))
-            // .distance(d => (
-            //     (isMalleableLink(d) && d.value < EPS) ? 
-            //     0 : LINK_DIST(d.value)
-            // ))
             .strength(d => (
-                // strong when matching, decent otherwise
+                // Strong when matching, decent otherwise.
                 isMalleableLink(d) ? 
                 (d.value < EPS ? 1.0 : 0.25) : 0.1  
             ))
@@ -126,12 +126,33 @@ const forceDistPlot = () => {
         .selectAll("line")
         .data(links)
         .join("line")
+        .attr("class", d => isMalleableLink(d) ? "malleable-link" : null)
         .attr("stroke", "#ccc")
-        .attr("stroke-opacity", d => {
-            if (d.source.scientific_name == "malleable") return 1.0
-            else return 0.1
+        .attr("stroke-opacity", d => isMalleableLink(d) ? 1 : 0.2)
+        .attr("stroke-width", d => isMalleableLink(d) ? "5px" : "1px")
+        .on("mouseover", (e, d) => {
+            const x = ((
+                e.target.x1.baseVal.value + 
+                e.target.x2.baseVal.value
+            )) / 2
+            const y = ((
+                e.target.y1.baseVal.value + 
+                e.target.y2.baseVal.value
+            )) / 2
+            if (isMalleableLink(d)) {
+                TOOLTIP.select("text")
+                    .text(FMT3(d.value))
+                TOOLTIP.select("rect")
+                    .attr("width", "50px")
+                TOOLTIP.attr("opacity", 1)
+                    .attr("transform", `translate(${x}, ${y-20})`)
+                    .raise()
+            } 
         })
-        .attr("stroke-width", d => Math.sqrt(d.value));
+        .on("mouseout", () => {
+            d3.select("#tooltip-display")
+                .attr("opacity", 0)
+        })
 
     const node = svg.selectAll(".gImages")
         .data([null])
@@ -143,7 +164,22 @@ const forceDistPlot = () => {
         .attr("class", "node")
         .attr("xlink:href", d => d.image)
         .attr("width", 80)
-        .attr("height", 80);
+        .attr("height", 80)
+        .on("mouseover", (e, d) => {
+            const name_len = d.scientific_name.length
+            if (d.scientific_name != "malleable") {
+                TOOLTIP.select("text")
+                    .text(d.scientific_name)
+                TOOLTIP.select("rect")
+                    .attr("width", `${name_len*10}px`)
+                TOOLTIP.attr("opacity", 1)
+                    .attr("transform", 
+                        `translate(${d.x - name_len*4}, ${d.y - 50})`)
+                    .raise()
+            } 
+        }).on("mouseout", () => {
+            TOOLTIP.attr("opacity", 0);
+        })
 
     // Add mouseover and click behaviors.
     node.on("dblclick", (e, d) => {
@@ -159,19 +195,11 @@ const forceDistPlot = () => {
         refreshControlsFromMalleable();
     });
     
-    const text = svg.selectAll("text")
-        .data(nodes)
-        .join("text")
-        .text(d => {
-            if (d.scientific_name != "malleable")
-                return d.scientific_name;
-        });
-
     // Add a drag behavior.
     node.call(d3.drag()
-            .on("start", dragstarted)
-            .on("drag", dragged)
-            .on("end", dragended));
+        .on("start", dragstarted)
+        .on("drag", dragged)
+        .on("end", dragended));
     
     // Set the position attributes of links and nodes each time the simulation ticks.
     SIMULATION.on("tick", () => {
@@ -181,8 +209,6 @@ const forceDistPlot = () => {
             .attr("y2", d => d.target.y);
         node.attr("x", d => d.x - 50) // -50 to center image on node.
             .attr("y", d => d.y - 50);
-        text.attr("x", d => d.x - 60) // -50 to center image on node.
-            .attr("y", d => d.y - 60);
     });
 
     function dragstarted(event) {
@@ -223,33 +249,39 @@ const updateLinkDistances = () => {
     LINK_DIST.domain(d3.extent(links, d => d.value));
 
     // Update link selections.
-    LINK = LINK.data(links, d => {
-            const s = typeof d.source === "string" ? 
-            d.source : d.source.scientific_name;
-            const t = typeof d.target === "string" ? 
-            d.target : d.target.scientific_name;
-            return `${s}--${t}`;
-        })
+    LINK = LINK.data(links, keyFn)
         .join("line")
-        .style("z-index", 0)
+        .attr("class", d => isMalleableLink(d) ? "malleable-link" : null)
         .attr("stroke", "#ccc")
-        .attr("stroke-opacity", d => {
-            const s = (
-                typeof d.source === "string" ? 
-                d.source : d.source.scientific_name
-            );
-            return s === "malleable" ? 1.0 : 0.1;
-        })
-        .attr("stroke-width", d => Math.sqrt(d.value)),
+        .attr("stroke-opacity", d => isMalleableLink(d) ? 1 : 0.2)
+        .attr("stroke-width", d => isMalleableLink(d) ? 5 : 1)
+        .on("mouseover", (e, d) => {
+            const x = ((
+                e.target.x1.baseVal.value + 
+                e.target.x2.baseVal.value
+            )) / 2
+            const y = ((
+                e.target.y1.baseVal.value + 
+                e.target.y2.baseVal.value
+            )) / 2
+            if (isMalleableLink(d)) {
+                TOOLTIP.select("text")
+                    .text(FMT3(d.value))
+                TOOLTIP.select("rect")
+                    .attr("width", "50px")
+                TOOLTIP.attr("opacity", 1)
+                    .attr("transform", `translate(${x}, ${y-20})`)
+                    .raise()
+            } 
+        }).on("mouseout", () => {
+            d3.select("#tooltip-display")
+                .attr("opacity", 0)
+        });
 
     // Feed new links to the force and update distance accessor
     SIMULATION.force("link")
         .links(links)
         .distance(d => LINK_DIST(d.value * DIST_MUL))
-        // .distance(d => (
-        //     (isMalleableLink(d) && d.value < EPS) ? 
-        //     0 : LINK_DIST(d.value)
-        // ))
         .strength(d => (
             isMalleableLink(d) ? 
             (d.value < EPS ? 1.0 : 0.25) : 0.1
@@ -300,9 +332,6 @@ const initMalleable = () => {
 }
 
 const refreshControlsFromMalleable = () => {
-    const fmt3 = d3.format(".3f");
-    const fmt0 = d3.format(".0f");
-
     // Update all sliders
     d3.selectAll('#control-panel input[type="range"]')
         .each(function() {
@@ -313,14 +342,14 @@ const refreshControlsFromMalleable = () => {
             // Update the label in the same controller.
             const p = d3.select(this.parentNode).select("p.value-label");
             const traitName = p.text().split(":")[0]; // keep the original trait text
-            p.text(`${traitName}: ${fmt3(v)}`);
+            p.text(`${traitName}: ${FMT3(v)}`);
         });
 
     // Update all checkboxes (both single switch and multi).
     d3.selectAll('#control-panel input[type="checkbox"]')
         .each(function() {
             const idx = +this.dataset.idx;
-            const checked = Number(fmt0(MALLEABLE[idx])) === 1;
+            const checked = Number(FMT0(MALLEABLE[idx])) === 1;
             d3.select(this).property("checked", checked);
         });
 }
